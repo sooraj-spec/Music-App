@@ -4,9 +4,9 @@ import { Ambient } from "./components/Ambient";
 import { Sidebar } from "./components/Sidebar";
 import { MiniPlayer } from "./components/MiniPlayer";
 import { NowPlaying } from "./components/NowPlaying";
-import { ComingSoon } from "./components/ComingSoon";
-import { FolderIcon, SearchIcon } from "./components/Icons";
 import { Home } from "./screens/Home";
+import { Search } from "./screens/Search";
+import { Library } from "./screens/Library";
 import { TRACKS, findTrack } from "./data/mock";
 import { EASE } from "./lib/motion";
 import type { PlayerApi, Screen, Track } from "./types";
@@ -132,10 +132,10 @@ export default function App() {
                     <Home currentTrackId={track?.id} onPlayTrack={player.playTrack} />
                   )}
                   {screen === "search" && (
-                    <ComingSoon title="Search" icon={<SearchIcon className="h-5 w-5" />} />
+                    <Search currentTrack={track} onPlayTrack={player.playTrack} />
                   )}
                   {screen === "library" && (
-                    <ComingSoon title="Library" icon={<FolderIcon className="h-5 w-5" />} />
+                    <Library currentTrack={track} onPlayTrack={player.playTrack} />
                   )}
                 </motion.div>
               </AnimatePresence>
