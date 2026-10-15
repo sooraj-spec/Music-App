@@ -33,3 +33,28 @@ export interface FeaturedMix {
   art: ArtVariant;
   leadTrackId: string;
 }
+
+/** Shared player state and actions. UI-only until the audio phase. */
+export interface PlayerApi {
+  track: Track | null;
+  isPlaying: boolean;
+  /** Seek position, 0 to 1. */
+  progress: number;
+  /** Volume, 0 to 1. */
+  volume: number;
+  shuffle: boolean;
+  repeat: boolean;
+  /** Whether the current track is liked. */
+  liked: boolean;
+  /** Tracks after the current one, in play order. */
+  upcoming: Track[];
+  playTrack: (track: Track) => void;
+  togglePlay: () => void;
+  prev: () => void;
+  next: () => void;
+  seek: (fraction: number) => void;
+  setVolume: (fraction: number) => void;
+  toggleShuffle: () => void;
+  toggleRepeat: () => void;
+  toggleLike: () => void;
+}
