@@ -183,6 +183,15 @@ export function NowPlaying({ player, onClose }: NowPlayingProps) {
         </div>
       </div>
 
+      {/* Click anywhere outside the queue to close it (header stays clickable) */}
+      {queueOpen && (
+        <div
+          aria-hidden
+          onClick={() => setQueueOpen(false)}
+          className="absolute inset-x-0 bottom-0 top-[72px] z-[5]"
+        />
+      )}
+
       {/* Queue drawer */}
       <AnimatePresence>
         {queueOpen && (
@@ -209,9 +218,7 @@ export function NowPlaying({ player, onClose }: NowPlayingProps) {
 
             <p className="t-eyebrow mt-7">Next up</p>
             {shuffle && (
-              <p className="t-caption mt-2 text-xs">
-                Shuffle is on, so the next track is picked at random.
-              </p>
+              <p className="t-caption mt-2 text-xs">Shuffle is on. Tracks play in this order.</p>
             )}
             {upcoming.length === 0 ? (
               <p className="t-caption mt-3 text-sm">

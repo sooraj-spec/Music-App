@@ -11,6 +11,16 @@ import { TRACKS, findTrack } from "./data/mock";
 import { EASE } from "./lib/motion";
 import type { PlayerApi, Screen, Track } from "./types";
 
+/** Random play order with `first` (the current track) kept at the front. */
+function shuffled(list: Track[], first: Track | null): Track[] {
+  const rest = list.filter((t) => t.id !== first?.id);
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+  return first ? [first, ...rest] : rest;
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [nowPlayingOpen, setNowPlayingOpen] = useState(false);
@@ -24,22 +34,24 @@ export default function App() {
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState(false);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
+  /** Play order. Normal order, or a shuffled copy while shuffle is on. */
+  const [order, setOrder] = useState<Track[]>(TRACKS);
 
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
   }, [screen]);
 
-  const index = track ? TRACKS.findIndex((t) => t.id === track.id) : -1;
+  const index = track ? order.findIndex((t) => t.id === track.id) : -1;
   const upcoming =
     index < 0
       ? []
       : repeat
-        ? [...TRACKS.slice(index + 1), ...TRACKS.slice(0, index)]
-        : TRACKS.slice(index + 1);
+        ? [...order.slice(index + 1), ...order.slice(0, index)]
+        : order.slice(index + 1);
 
   /** Switch track without changing the play/pause state. */
   const goTo = (i: number) => {
-    setTrack(TRACKS[i]);
+    setTrack(order[i]);
     setProgress(0);
   };
 
@@ -63,24 +75,23 @@ export default function App() {
       if (index < 0) return;
       if (progress > 0.05) return setProgress(0); // restart first
       if (index > 0) return goTo(index - 1);
-      if (repeat) return goTo(TRACKS.length - 1);
+      if (repeat) return goTo(order.length - 1);
       setProgress(0);
     },
     next: () => {
       if (index < 0) return;
-      if (shuffle && TRACKS.length > 1) {
-        let n = index;
-        while (n === index) n = Math.floor(Math.random() * TRACKS.length);
-        return goTo(n);
-      }
-      if (index + 1 < TRACKS.length) return goTo(index + 1);
+      if (index + 1 < order.length) return goTo(index + 1);
       if (repeat) return goTo(0);
       setIsPlaying(false);
       setProgress(0);
     },
     seek: setProgress,
     setVolume,
-    toggleShuffle: () => setShuffle((s) => !s),
+    toggleShuffle: () => {
+      const on = !shuffle;
+      setShuffle(on);
+      setOrder(on ? shuffled(TRACKS, track) : TRACKS);
+    },
     toggleRepeat: () => setRepeat((r) => !r),
     toggleLike: () => {
       if (!track) return;
