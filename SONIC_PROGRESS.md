@@ -33,13 +33,14 @@ Premium glassmorphism meets immersive music editorial. Near-black foundations, t
 - Cover art is procedural (Artwork.tsx, variants orb / horizon / rings / prism)
 - The page background tints from the current track's hue (Ambient.tsx; `strong` variant behind Now Playing)
 
-## Player architecture (all UI-only mock, NO audio)
-- All player state lives in App.tsx and is passed down as one `player: PlayerApi` object (defined in types.ts).
-- State: track, isPlaying, progress (0-1), volume (0-1), shuffle, repeat, liked set, and `order` (play order: normal, or a shuffled copy with the current track first while shuffle is on).
-- Queue, Next and Prev all use the same `order`, so they always match.
-- Next on the last track: wraps if repeat is on, otherwise stops playback. Prev restarts the track if progress is over 5%, otherwise goes back.
-- Mini-player and Now Playing share the cover through a Motion `layoutId="player-art"` transition.
-- Now Playing is an overlay (not a screen). The app behind it is `inert`. Esc closes the queue first, then Now Playing. Clicking outside the queue also closes it.
+## Player architecture (mock engine, NO audio)
+- src/player/reducer.ts: pure reducer (queue, baseQueue, index, position, volume, mute, shuffle, repeat off/all/one, likes). Shuffle uses a seeded PRNG passed in the action.
+- src/player/engine.ts: PlayerEngine interface (load/play/pause/seek/setVolume/subscribe/dispose). Events carry trackId.
+- src/player/mockEngine.ts: simulated clock (250 ms ticks), no sound.
+- src/player/PlayerProvider.tsx: three contexts: usePlayerState, usePlayerActions, usePlaybackPosition. Engine commands run in a serial chain; errors log and pause playback.
+- src/services/catalog.ts: TrackCatalog interface plus mockCatalog (sync mock; will become async).
+- Clicking a track on a screen starts a fresh library queue at that track. Queue drawer items jump within the queue.
+- Not yet: queue reordering, album/search-context queues, persistence.
 
 ## Current file structure
 sonic/
@@ -56,13 +57,8 @@ sonic/
 
 ## Phases
 - [x] Phase 1: Foundation, dark theme, Motion, running Tauri window (verified)
-- [~] Phase 2: Ambient Glass redesign
-  - [x] Batch A: design system, sidebar, Home (in use; running with Batch B)
-  - [~] Batch B: full mini-player, artwork transition, Now Playing, waveform, queue drawer, volume, shuffle/repeat/like (tested by me; two issues found, fixes delivered, awaiting retest)
-    - Fixed: shuffle now reorders the queue (single shared `order`)
-    - Fixed: clicking outside the queue closes it
-  - [ ] Batch C: Search and Library redesign (currently placeholders via ComingSoon). Must use existing mock data, shared player state and existing components.
-- [ ] Phase 3: Remaining screens polish and Liked Songs (mock data)
+- [x] Phase 2: Ambient Glass redesign (Batches A, B, C tested)
+- [x] Phase 3: Shared player core and mock engine (tested, working)
 - [ ] Phase 4: Queue UI wired to a real queue model
 - [ ] Phase 5: Local music playback (Rust file scanning, audio, metadata, artwork). NO audio exists yet.
 - [ ] Phase 6: Polish, animations, packaging
