@@ -3,7 +3,10 @@ export type Screen = "home" | "search" | "library";
 /** Procedural placeholder cover styles. */
 export type ArtVariant = "orb" | "horizon" | "rings" | "prism";
 
-/** Display metadata only. How a track is actually played belongs to the engine. */
+/** Where a track's audio comes from. Tracks without a source are sample tracks (simulated). */
+export type TrackSource = { kind: "local-file"; path: string };
+
+/** Display metadata plus an optional audio source. How it is played belongs to the engine. */
 export interface Track {
   id: string;
   title: string;
@@ -14,6 +17,7 @@ export interface Track {
   art: ArtVariant;
   /** Display duration, "m:ss". */
   duration: string;
+  source?: TrackSource;
 }
 
 /** A playlist, album or similar group that starts at one track. */

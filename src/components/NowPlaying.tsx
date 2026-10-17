@@ -237,7 +237,9 @@ export function NowPlaying({ onClose }: { onClose: () => void }) {
                 </p>
               )}
               <p className="t-caption mt-6 text-[11px]">
-                Simulated playback. There is no audio yet.
+                {track.source
+                  ? "Playing from a local file."
+                  : "Sample track: simulated playback, no audio. Use Open audio file in the sidebar to hear real sound."}
               </p>
             </div>
           </div>

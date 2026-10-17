@@ -1,7 +1,7 @@
 import type { ComponentType, SVGProps } from "react";
 import { motion } from "motion/react";
 import { Artwork } from "./Artwork";
-import { HomeIcon, LibraryIcon, SearchIcon, SonicMark } from "./Icons";
+import { FolderIcon, HomeIcon, LibraryIcon, SearchIcon, SonicMark } from "./Icons";
 import { PLAYLISTS } from "../data/mock";
 import type { Screen } from "../types";
 
@@ -15,9 +15,11 @@ interface SidebarProps {
   current: Screen;
   onNavigate: (screen: Screen) => void;
   onSelectPlaylist: (leadTrackId: string) => void;
+  /** Provided only in the desktop app. */
+  onOpenFile?: () => void;
 }
 
-export function Sidebar({ current, onNavigate, onSelectPlaylist }: SidebarProps) {
+export function Sidebar({ current, onNavigate, onSelectPlaylist, onOpenFile }: SidebarProps) {
   return (
     <aside className="glass flex w-[84px] shrink-0 flex-col overflow-hidden rounded-3xl min-[1040px]:w-[244px]">
       {/* Brand */}
@@ -66,6 +68,23 @@ export function Sidebar({ current, onNavigate, onSelectPlaylist }: SidebarProps)
         })}
       </nav>
 
+      {/* Local audio file (desktop app only) */}
+      {onOpenFile && (
+        <div className="mt-6 px-3">
+          <motion.button
+            type="button"
+            onClick={onOpenFile}
+            whileTap={{ scale: 0.97 }}
+            aria-label="Open audio file"
+            title="Open audio file"
+            className="flex h-11 w-full items-center gap-3.5 rounded-xl border border-hairline px-[18px] text-sm font-medium text-ink-2 transition-colors hover:bg-white/[0.05] hover:text-ink max-[1039px]:justify-center max-[1039px]:px-0"
+          >
+            <FolderIcon className="h-[19px] w-[19px] shrink-0" />
+            <span className="hidden min-[1040px]:inline">Open audio file</span>
+          </motion.button>
+        </div>
+      )}
+
       {/* Playlists */}
       <div className="mt-9 hidden min-h-0 flex-1 flex-col overflow-y-auto px-3 min-[1040px]:flex">
         <p className="t-eyebrow px-[18px] pb-3">Playlists</p>
@@ -94,7 +113,7 @@ export function Sidebar({ current, onNavigate, onSelectPlaylist }: SidebarProps)
       </div>
 
       <p className="t-caption mt-auto hidden px-7 pb-6 pt-4 text-[11px] min-[1040px]:block">
-        Preview build · mock data · no audio yet
+        Sample data is simulated. Open an audio file to hear real sound.
       </p>
     </aside>
   );
