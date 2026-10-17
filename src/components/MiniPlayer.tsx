@@ -3,19 +3,26 @@ import { Artwork } from "./Artwork";
 import { IconButton } from "./IconButton";
 import { PlayButton } from "./PlayButton";
 import { ChevronDownIcon, NextIcon, PrevIcon } from "./Icons";
-import { formatTime, toSeconds } from "../lib/format";
-import type { PlayerApi } from "../types";
+import { formatTime } from "../lib/format";
+import {
+  usePlaybackPosition,
+  usePlayerActions,
+  usePlayerState,
+} from "../player/PlayerProvider";
 
 interface MiniPlayerProps {
-  player: PlayerApi;
   /** True while Now Playing is open (hands the artwork transition over to it). */
   expanded: boolean;
   onOpen: () => void;
 }
 
-export function MiniPlayer({ player, expanded, onOpen }: MiniPlayerProps) {
-  const { track, isPlaying, progress } = player;
+export function MiniPlayer({ expanded, onOpen }: MiniPlayerProps) {
+  const { track, isPlaying, durationSec } = usePlayerState();
+  const actions = usePlayerActions();
+  const position = usePlaybackPosition();
+
   const none = track === null;
+  const fraction = durationSec > 0 ? Math.min(position / durationSec, 1) : 0;
 
   return (
     <div className="glass-float grid h-20 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 rounded-[24px] px-4">
@@ -56,11 +63,11 @@ export function MiniPlayer({ player, expanded, onOpen }: MiniPlayerProps) {
 
       {/* Controls */}
       <div className="flex items-center gap-1.5">
-        <IconButton label="Previous track" onClick={player.prev} disabled={none}>
+        <IconButton label="Previous track" onClick={actions.playPrevious} disabled={none}>
           <PrevIcon className="h-[18px] w-[18px]" />
         </IconButton>
-        <PlayButton isPlaying={isPlaying} onClick={player.togglePlay} disabled={none} />
-        <IconButton label="Next track" onClick={player.next} disabled={none}>
+        <PlayButton isPlaying={isPlaying} onClick={actions.togglePlayPause} disabled={none} />
+        <IconButton label="Next track" onClick={actions.playNext} disabled={none}>
           <NextIcon className="h-[18px] w-[18px]" />
         </IconButton>
       </div>
@@ -69,16 +76,19 @@ export function MiniPlayer({ player, expanded, onOpen }: MiniPlayerProps) {
       <div className="flex items-center justify-end gap-3">
         {track && (
           <div className="t-caption hidden w-full max-w-[190px] items-center gap-3 text-xs tabular-nums md:flex">
-            <span>{formatTime(toSeconds(track.duration) * progress)}</span>
+            <span>{formatTime(position)}</span>
             <div
               role="progressbar"
-              aria-label="Track progress (preview only)"
+              aria-label="Track progress (simulated)"
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={Math.round(progress * 100)}
+              aria-valuenow={Math.round(fraction * 100)}
               className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/10"
             >
-              <div className="h-full rounded-full bg-ink/80" style={{ width: `${progress * 100}%` }} />
+              <div
+                className="h-full rounded-full bg-ink/80 transition-[width] duration-300 ease-linear"
+                style={{ width: `${fraction * 100}%` }}
+              />
             </div>
             <span>{track.duration}</span>
           </div>

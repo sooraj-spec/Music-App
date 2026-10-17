@@ -3,6 +3,7 @@ export type Screen = "home" | "search" | "library";
 /** Procedural placeholder cover styles. */
 export type ArtVariant = "orb" | "horizon" | "rings" | "prism";
 
+/** Display metadata only. How a track is actually played belongs to the engine. */
 export interface Track {
   id: string;
   title: string;
@@ -11,9 +12,11 @@ export interface Track {
   /** Hue (0-360) driving the cover art and the ambient background. */
   hue: number;
   art: ArtVariant;
+  /** Display duration, "m:ss". */
   duration: string;
 }
 
+/** A playlist, album or similar group that starts at one track. */
 export interface Collection {
   id: string;
   title: string;
@@ -34,27 +37,48 @@ export interface FeaturedMix {
   leadTrackId: string;
 }
 
-/** Shared player state and actions. UI-only until the audio phase. */
-export interface PlayerApi {
+export type RepeatMode = "off" | "all" | "one";
+
+export interface QueueItem {
+  /** Unique per queue entry, so the same track can appear twice. */
+  queueId: string;
+  track: Track;
+}
+
+/** What the UI reads. The playback position is separate (usePlaybackPosition). */
+export interface PlayerState {
+  /** Play order. Already shuffled while shuffle is on. */
+  queue: readonly QueueItem[];
+  /** Index of the current item in `queue`, or -1 when nothing is loaded. */
+  index: number;
   track: Track | null;
   isPlaying: boolean;
-  /** Seek position, 0 to 1. */
-  progress: number;
-  /** Volume, 0 to 1. */
+  durationSec: number;
+  /** 0 to 1 */
   volume: number;
+  muted: boolean;
   shuffle: boolean;
-  repeat: boolean;
+  repeat: RepeatMode;
   /** Whether the current track is liked. */
   liked: boolean;
-  /** Tracks after the current one, in play order. */
-  upcoming: Track[];
+  error: string | null;
+}
+
+export interface PlayerActions {
+  /** Starts a fresh queue from the library at this track. */
   playTrack: (track: Track) => void;
-  togglePlay: () => void;
-  prev: () => void;
-  next: () => void;
-  seek: (fraction: number) => void;
-  setVolume: (fraction: number) => void;
+  togglePlayPause: () => void;
+  playNext: () => void;
+  playPrevious: () => void;
+  seek: (seconds: number) => void;
+  setVolume: (volume: number) => void;
+  toggleMute: () => void;
   toggleShuffle: () => void;
-  toggleRepeat: () => void;
+  setRepeatMode: (mode: RepeatMode) => void;
+  /** Jumps to an item in the current queue. */
+  playQueueItem: (index: number) => void;
+  removeFromQueue: (index: number) => void;
+  /** Removes everything except the current track. */
+  clearQueue: () => void;
   toggleLike: () => void;
 }

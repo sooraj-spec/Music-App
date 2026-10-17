@@ -18,17 +18,45 @@ import {
   VolumeIcon,
 } from "./Icons";
 import { EASE } from "../lib/motion";
-import { formatTime, toSeconds } from "../lib/format";
-import type { PlayerApi } from "../types";
+import { formatTime } from "../lib/format";
+import {
+  usePlaybackPosition,
+  usePlayerActions,
+  usePlayerState,
+} from "../player/PlayerProvider";
+import type { RepeatMode } from "../types";
 
-interface NowPlayingProps {
-  player: PlayerApi;
-  onClose: () => void;
+const NEXT_REPEAT: Record<RepeatMode, RepeatMode> = { off: "all", all: "one", one: "off" };
+const REPEAT_LABEL: Record<RepeatMode, string> = {
+  off: "Repeat: off",
+  all: "Repeat: all",
+  one: "Repeat: this track",
+};
+
+function CloseIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
 }
 
-export function NowPlaying({ player, onClose }: NowPlayingProps) {
+export function NowPlaying({ onClose }: { onClose: () => void }) {
   const [queueOpen, setQueueOpen] = useState(false);
-  const { track, isPlaying, progress, volume, shuffle, repeat, liked, upcoming } = player;
+  const state = usePlayerState();
+  const actions = usePlayerActions();
+  const position = usePlaybackPosition();
+  const { track, isPlaying, durationSec, volume, muted, shuffle, repeat, liked, queue, index, error } =
+    state;
 
   // Escape closes the queue first, then Now Playing.
   useEffect(() => {
@@ -43,8 +71,10 @@ export function NowPlaying({ player, onClose }: NowPlayingProps) {
 
   if (!track) return null;
 
-  const total = toSeconds(track.duration);
-  const elapsed = formatTime(total * progress);
+  const fraction = durationSec > 0 ? Math.min(position / durationSec, 1) : 0;
+  const elapsed = formatTime(position);
+  const silent = muted || volume === 0;
+  const upcoming = queue.map((item, i) => ({ item, i })).filter(({ i }) => i > index);
 
   return (
     <motion.div
@@ -113,7 +143,7 @@ export function NowPlaying({ player, onClose }: NowPlayingProps) {
                   <IconButton
                     label={liked ? "Remove from liked songs" : "Like track"}
                     pressed={liked}
-                    onClick={player.toggleLike}
+                    onClick={actions.toggleLike}
                   >
                     <HeartIcon className="h-5 w-5" fill={liked ? "currentColor" : "none"} />
                   </IconButton>
@@ -122,11 +152,11 @@ export function NowPlaying({ player, onClose }: NowPlayingProps) {
 
               {/* Waveform + seek */}
               <div className="mt-8">
-                <Waveform seed={track.id} progress={progress} />
+                <Waveform seed={track.id} progress={fraction} />
                 <div className="mt-3">
                   <Slider
-                    value={progress}
-                    onChange={player.seek}
+                    value={fraction}
+                    onChange={(f) => actions.seek(f * durationSec)}
                     label="Seek"
                     valueText={`${elapsed} of ${track.duration}`}
                   />
@@ -139,30 +169,56 @@ export function NowPlaying({ player, onClose }: NowPlayingProps) {
 
               {/* Primary controls */}
               <div className="mt-6 flex items-center justify-between">
-                <IconButton label="Shuffle" pressed={shuffle} onClick={player.toggleShuffle}>
+                <IconButton label="Shuffle" pressed={shuffle} onClick={actions.toggleShuffle}>
                   <ShuffleIcon className="h-[18px] w-[18px]" />
                 </IconButton>
-                <IconButton label="Previous track" onClick={player.prev} className="h-11 w-11">
+                <IconButton label="Previous track" onClick={actions.playPrevious} className="h-11 w-11">
                   <PrevIcon className="h-5 w-5" />
                 </IconButton>
-                <PlayButton isPlaying={isPlaying} onClick={player.togglePlay} large />
-                <IconButton label="Next track" onClick={player.next} className="h-11 w-11">
+                <PlayButton isPlaying={isPlaying} onClick={actions.togglePlayPause} large />
+                <IconButton label="Next track" onClick={actions.playNext} className="h-11 w-11">
                   <NextIcon className="h-5 w-5" />
                 </IconButton>
-                <IconButton label="Repeat" pressed={repeat} onClick={player.toggleRepeat}>
-                  <RepeatIcon className="h-[18px] w-[18px]" />
+                <IconButton
+                  label={REPEAT_LABEL[repeat]}
+                  pressed={repeat !== "off"}
+                  onClick={() => actions.setRepeatMode(NEXT_REPEAT[repeat])}
+                >
+                  <span className="relative flex">
+                    <RepeatIcon className="h-[18px] w-[18px]" />
+                    {repeat === "one" && (
+                      <span className="absolute -right-1.5 -top-1.5 text-[9px] font-bold leading-none">
+                        1
+                      </span>
+                    )}
+                  </span>
                 </IconButton>
               </div>
 
               {/* Secondary: volume and queue */}
               <div className="mt-6 flex items-center justify-between gap-6">
-                <div className="flex w-44 items-center gap-3 text-ink-3">
-                  <VolumeIcon className="h-[18px] w-[18px] shrink-0" />
+                <div className="flex w-48 items-center gap-1 text-ink-3">
+                  <IconButton
+                    label={muted ? "Unmute" : "Mute"}
+                    pressed={muted}
+                    onClick={actions.toggleMute}
+                    className="h-9 w-9"
+                  >
+                    <span className="relative flex">
+                      <VolumeIcon className="h-[18px] w-[18px]" />
+                      {silent && (
+                        <span
+                          aria-hidden
+                          className="absolute left-0 top-1/2 h-[1.5px] w-full -rotate-45 rounded bg-current"
+                        />
+                      )}
+                    </span>
+                  </IconButton>
                   <Slider
-                    value={volume}
-                    onChange={player.setVolume}
+                    value={muted ? 0 : volume}
+                    onChange={actions.setVolume}
                     label="Volume"
-                    valueText={`${Math.round(volume * 100)}%`}
+                    valueText={muted ? "Muted" : `${Math.round(volume * 100)}%`}
                     fill="rgba(181,178,196,0.9)"
                   />
                 </div>
@@ -175,8 +231,13 @@ export function NowPlaying({ player, onClose }: NowPlayingProps) {
                 </IconButton>
               </div>
 
+              {error && (
+                <p role="alert" className="mt-4 text-sm text-red-300">
+                  Playback error: {error}
+                </p>
+              )}
               <p className="t-caption mt-6 text-[11px]">
-                Preview controls only. Audio arrives in a later phase.
+                Simulated playback. There is no audio yet.
               </p>
             </div>
           </div>
@@ -216,35 +277,68 @@ export function NowPlaying({ player, onClose }: NowPlayingProps) {
               <MusicIcon className="h-4 w-4 shrink-0 text-violet" />
             </div>
 
-            <p className="t-eyebrow mt-7">Next up</p>
-            {shuffle && (
-              <p className="t-caption mt-2 text-xs">Shuffle is on. Tracks play in this order.</p>
+            <div className="mt-7 flex items-center justify-between">
+              <p className="t-eyebrow">Next up</p>
+              {upcoming.length > 0 && (
+                <button
+                  type="button"
+                  onClick={actions.clearQueue}
+                  className="rounded-full px-3 py-1 text-xs text-ink-3 transition-colors hover:bg-white/[0.06] hover:text-ink"
+                >
+                  Clear queue
+                </button>
+              )}
+            </div>
+
+            {(shuffle || repeat !== "off") && (
+              <p className="t-caption mt-2 text-xs">
+                {[
+                  shuffle ? "Shuffled order." : "",
+                  repeat === "all" ? "Repeats from the start." : "",
+                  repeat === "one" ? "Repeating this track." : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              </p>
             )}
+
             {upcoming.length === 0 ? (
               <p className="t-caption mt-3 text-sm">
-                That's the end of the list. Turn on repeat to loop it.
+                Nothing queued after this track.
+                {repeat === "off" ? " Turn on repeat to loop the list." : ""}
               </p>
             ) : (
               <ul className="-mx-2 mt-2 min-h-0 flex-1 overflow-y-auto">
-                {upcoming.map((t) => (
-                  <li key={t.id}>
+                {upcoming.map(({ item, i }) => (
+                  <li
+                    key={item.queueId}
+                    className="group flex items-center gap-1 rounded-xl transition-colors hover:bg-white/[0.05]"
+                  >
                     <button
                       type="button"
-                      onClick={() => player.playTrack(t)}
-                      className="group flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-white/[0.05]"
+                      onClick={() => actions.playQueueItem(i)}
+                      className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-left"
                     >
                       <div className="shrink-0 overflow-hidden rounded-lg">
                         <Artwork
-                          hue={t.hue}
-                          variant={t.art}
+                          hue={item.track.hue}
+                          variant={item.track.art}
                           className="h-11 w-11 transition-transform duration-500 group-hover:scale-110"
                         />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="t-title truncate">{t.title}</p>
-                        <p className="t-caption truncate">{t.artist}</p>
+                        <p className="t-title truncate">{item.track.title}</p>
+                        <p className="t-caption truncate">{item.track.artist}</p>
                       </div>
-                      <span className="t-caption text-xs tabular-nums">{t.duration}</span>
+                      <span className="t-caption text-xs tabular-nums">{item.track.duration}</span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${item.track.title} from queue`}
+                      onClick={() => actions.removeFromQueue(i)}
+                      className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-3 opacity-0 transition hover:bg-white/[0.08] hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+                    >
+                      <CloseIcon />
                     </button>
                   </li>
                 ))}

@@ -7,106 +7,31 @@ import { NowPlaying } from "./components/NowPlaying";
 import { Home } from "./screens/Home";
 import { Search } from "./screens/Search";
 import { Library } from "./screens/Library";
-import { TRACKS, findTrack } from "./data/mock";
+import { PlayerProvider, usePlayerActions, usePlayerState } from "./player/PlayerProvider";
+import { mockCatalog } from "./services/catalog";
 import { EASE } from "./lib/motion";
-import type { PlayerApi, Screen, Track } from "./types";
+import type { Screen } from "./types";
 
-/** Random play order with `first` (the current track) kept at the front. */
-function shuffled(list: Track[], first: Track | null): Track[] {
-  const rest = list.filter((t) => t.id !== first?.id);
-  for (let i = rest.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [rest[i], rest[j]] = [rest[j], rest[i]];
-  }
-  return first ? [first, ...rest] : rest;
-}
-
-export default function App() {
+function Shell() {
   const [screen, setScreen] = useState<Screen>("home");
   const [nowPlayingOpen, setNowPlayingOpen] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
-  // MOCK player state: UI only, no audio.
-  const [track, setTrack] = useState<Track | null>(TRACKS[0]);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [volume, setVolume] = useState(0.7);
-  const [shuffle, setShuffle] = useState(false);
-  const [repeat, setRepeat] = useState(false);
-  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
-  /** Play order. Normal order, or a shuffled copy while shuffle is on. */
-  const [order, setOrder] = useState<Track[]>(TRACKS);
+  const { track } = usePlayerState();
+  const { playTrack } = usePlayerActions();
 
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
   }, [screen]);
 
-  const index = track ? order.findIndex((t) => t.id === track.id) : -1;
-  const upcoming =
-    index < 0
-      ? []
-      : repeat
-        ? [...order.slice(index + 1), ...order.slice(0, index)]
-        : order.slice(index + 1);
-
-  /** Switch track without changing the play/pause state. */
-  const goTo = (i: number) => {
-    setTrack(order[i]);
-    setProgress(0);
-  };
-
-  const player: PlayerApi = {
-    track,
-    isPlaying,
-    progress,
-    volume,
-    shuffle,
-    repeat,
-    liked: track ? likedIds.has(track.id) : false,
-    upcoming,
-
-    playTrack: (t) => {
-      setTrack(t);
-      setProgress(0);
-      setIsPlaying(true);
-    },
-    togglePlay: () => setIsPlaying((p) => !p),
-    prev: () => {
-      if (index < 0) return;
-      if (progress > 0.05) return setProgress(0); // restart first
-      if (index > 0) return goTo(index - 1);
-      if (repeat) return goTo(order.length - 1);
-      setProgress(0);
-    },
-    next: () => {
-      if (index < 0) return;
-      if (index + 1 < order.length) return goTo(index + 1);
-      if (repeat) return goTo(0);
-      setIsPlaying(false);
-      setProgress(0);
-    },
-    seek: setProgress,
-    setVolume,
-    toggleShuffle: () => {
-      const on = !shuffle;
-      setShuffle(on);
-      setOrder(on ? shuffled(TRACKS, track) : TRACKS);
-    },
-    toggleRepeat: () => setRepeat((r) => !r),
-    toggleLike: () => {
-      if (!track) return;
-      setLikedIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(track.id)) next.delete(track.id);
-        else next.add(track.id);
-        return next;
-      });
-    },
-  };
+  // If the queue empties while Now Playing is open, close it so it doesn't reappear later.
+  useEffect(() => {
+    if (!track) setNowPlayingOpen(false);
+  }, [track]);
 
   const playById = (id: string) => {
-    const t = findTrack(id);
-    if (t) player.playTrack(t);
+    const t = mockCatalog.getTrack(id);
+    if (t) playTrack(t);
   };
 
   return (
@@ -128,26 +53,16 @@ export default function App() {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.22, ease: EASE }}
                 >
-                  {screen === "home" && (
-                    <Home currentTrackId={track?.id} onPlayTrack={player.playTrack} />
-                  )}
-                  {screen === "search" && (
-                    <Search currentTrack={track} onPlayTrack={player.playTrack} />
-                  )}
-                  {screen === "library" && (
-                    <Library currentTrack={track} onPlayTrack={player.playTrack} />
-                  )}
+                  {screen === "home" && <Home currentTrackId={track?.id} onPlayTrack={playTrack} />}
+                  {screen === "search" && <Search currentTrack={track} onPlayTrack={playTrack} />}
+                  {screen === "library" && <Library currentTrack={track} onPlayTrack={playTrack} />}
                 </motion.div>
               </AnimatePresence>
             </main>
 
             <div className="pointer-events-none absolute inset-x-6 bottom-5 z-20 flex justify-center">
               <div className="pointer-events-auto w-full max-w-[780px]">
-                <MiniPlayer
-                  player={player}
-                  expanded={nowPlayingOpen}
-                  onOpen={() => setNowPlayingOpen(true)}
-                />
+                <MiniPlayer expanded={nowPlayingOpen} onOpen={() => setNowPlayingOpen(true)} />
               </div>
             </div>
           </div>
@@ -155,10 +70,18 @@ export default function App() {
 
         <AnimatePresence>
           {nowPlayingOpen && track && (
-            <NowPlaying key="now-playing" player={player} onClose={() => setNowPlayingOpen(false)} />
+            <NowPlaying key="now-playing" onClose={() => setNowPlayingOpen(false)} />
           )}
         </AnimatePresence>
       </div>
     </MotionConfig>
+  );
+}
+
+export default function App() {
+  return (
+    <PlayerProvider catalog={mockCatalog}>
+      <Shell />
+    </PlayerProvider>
   );
 }
